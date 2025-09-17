@@ -39,6 +39,7 @@ pylibiio==0.25
 pyparsing==3.2.3
 python-dateutil==2.9.0.post0
 pytz==2025.2
+pywin32==311
 PyYAML==6.0.2
 referencing==0.36.2
 requests==2.32.5

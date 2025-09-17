@@ -15,7 +15,7 @@ def basic_rx_example():
     # Create radio object - replace URI with your Pluto's IP if using Ethernet
     # For USB connection, use default URI or "ip:192.168.2.1"
     # For Ethernet/WiFi, use "ip:your.pluto.ip.address"
-    sdr = adi.Pluto("ip:192.168.2.1")
+    sdr = adi.Pluto()
     
     # Configure Rx parameters
     sdr.sample_rate = int(2.4e6)  # 2.4 MHz sample rate
