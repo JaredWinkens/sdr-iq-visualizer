@@ -4,7 +4,7 @@ import dash_bootstrap_components as dbc
 from config import HOST, PORT
 from layouts.homepage import load_homepage_layout
 
-stylesheets = [dbc.themes.BOOTSTRAP]
+stylesheets = [dbc.themes.BOOTSTRAP, dbc.icons.BOOTSTRAP]
 
 app = dash.Dash(
     __name__,
