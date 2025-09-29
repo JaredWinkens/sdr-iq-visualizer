@@ -171,7 +171,7 @@ app.layout = html.Div([
     # Interval component for updating graphs
     dcc.Interval(
         id='interval-component',
-        interval=100,  # Update every 100ms
+        interval=300,  # Update every 300ms
         n_intervals=0,
         disabled=True
     )
