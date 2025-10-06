@@ -1,17 +1,23 @@
 # run_dashboard.py
 
 import logging
-from dash import Dash
-from dash import html
+from dash import dash
 import dashboard.layout as dashboard_layout
 import dashboard.callbacks as dashboard_callbacks
+import dash_bootstrap_components as dbc
+from config.settings import DASH_CONFIGS
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 # Create the app
-app = Dash(__name__)
+stylesheets = [dbc.themes.BOOTSTRAP, dbc.icons.BOOTSTRAP]
+app = dash.Dash(
+    __name__,
+    external_stylesheets=stylesheets,
+    suppress_callback_exceptions=True,
+)
 
 # Attach layout
 app.layout = dashboard_layout.layout
@@ -31,4 +37,4 @@ print("\nNote: Make sure your SDR device is connected and accessible")
 
 # Run server
 if __name__ == "__main__":
-    app.run(debug=True, host="127.0.0.1", port=8050)
+    app.run(debug=True, host=DASH_CONFIGS['host'], port=DASH_CONFIGS['port'])

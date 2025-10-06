@@ -14,7 +14,6 @@ logger = logging.getLogger(__name__)
 waterfall_data = deque(maxlen=100)
 waterfall_freqs = None
 
-
 def register_callbacks(app):
     """Attach all callbacks to the Dash app."""
 
@@ -80,7 +79,8 @@ def register_callbacks(app):
     @app.callback(
         [Output('time-domain-graph', 'figure'),
          Output('freq-domain-graph', 'figure'),
-         Output('waterfall-graph', 'figure')],
+         Output('waterfall-graph', 'figure'),
+         Output('constellation-plot', 'figure')],
         Input('interval-component', 'n_intervals'),
         prevent_initial_call=True
     )
@@ -161,4 +161,30 @@ def register_callbacks(app):
             height=400
         )
 
-        return time_fig, freq_fig, waterfall_fig
+        # Constellation diagram
+        constellation_fig = go.Figure()
+        # Randomly subsample if too many points for performance
+        if len(samples) > 2000:
+            idx = np.random.choice(len(samples), 2000, replace=False)
+            plot_real = np.real(samples)[idx]
+            plot_imag = np.imag(samples)[idx]
+        else:
+            plot_real = np.real(samples)
+            plot_imag = np.imag(samples)
+        constellation_fig.add_trace(go.Scatter(
+            x=plot_real,
+            y=plot_imag,
+            mode='markers',
+            marker=dict(size=4, color='purple', opacity=0.5),
+            name='Constellation'
+        ))
+        constellation_fig.update_layout(
+            title='Constellation Diagram',
+            xaxis_title='In-Phase (I)',
+            yaxis_title='Quadrature (Q)',
+            showlegend=False,
+            height=400,
+            xaxis=dict(scaleanchor="y", scaleratio=1)  # Square aspect ratio
+        )
+
+        return time_fig, freq_fig, waterfall_fig, constellation_fig
