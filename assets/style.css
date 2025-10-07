@@ -2,6 +2,10 @@
     margin-bottom: 10px;
 }
 
+.home-page-column {
+    padding: 20px;
+}
+
 .home-page-card:hover {
     transform: scale(1.02); /* Slightly enlarge the card */
     box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2); /* Add a subtle shadow */
