@@ -1,7 +1,16 @@
+from dotenv import load_dotenv
+import os
+load_dotenv()
+
 # Dash App Configuration
 DASH_CONFIGS = {
     'host': "0.0.0.0",
     'port': 8050
+}
+
+CHATBOT_CONFIG = {
+    'api_key': os.getenv('GOOGLE_API_KEY'),
+    'model': "gemini-2.5-flash"
 }
 
 # SDR Device Configuration

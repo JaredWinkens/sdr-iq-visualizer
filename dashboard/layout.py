@@ -1,6 +1,7 @@
 
 from dash import dcc, html
 import dash_bootstrap_components as dbc
+from chatbot.layout import load_mini_chatbot_layout
 
 layout = dbc.Container(
     [
@@ -67,6 +68,7 @@ layout = dbc.Container(
                 ), md=6, class_name='home-page-column'),
             ]
         ),
+        load_mini_chatbot_layout("Hi!"),
         # Interval for updating graphs
         dcc.Interval(
             id='interval-component',
