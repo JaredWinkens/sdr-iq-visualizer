@@ -13,7 +13,6 @@ def load_mini_chatbot_layout(initial_prompt: str):
             # Chat header with minimize button
             html.Div([
                 html.Div([
-                    html.Span("💬"),
                     html.Span("Chat Assistant")
                 ], className="chat-mini-title"),
                 html.Button("−", id="chat-mini-minimize-btn", className="chat-mini-minimize-btn")

@@ -92,10 +92,14 @@ def register_callbacks(app):
         ],
         [
             State('chat-mini-message-store', 'data'),
+            State('time-domain-graph', 'figure'),
+            State('freq-domain-graph', 'figure'),
+            State('waterfall-graph', 'figure'),
+            State('constellation-plot', 'figure')
         ],
         prevent_initial_call=True
     )
-    def bot_response(is_loading, messages):
+    def bot_response(is_loading, messages, td_fig, fd_fig, wf_fig, con_fig):
         if not is_loading or not messages:
             return messages, False
 
@@ -105,6 +109,7 @@ def register_callbacks(app):
             return messages, False
 
         # Generate bot response
+        chatbot_sessions['default'].update_state(td_fig, fd_fig, wf_fig, con_fig)
         bot_reply = chatbot_sessions['default'].get_response(last_message['content'])
         
         # Add bot message

@@ -68,7 +68,7 @@ layout = dbc.Container(
                 ), md=6, class_name='home-page-column'),
             ]
         ),
-        load_mini_chatbot_layout("Hi!"),
+        load_mini_chatbot_layout("Hi! I am an interactive chatbot design to analyze radio frequency data and provide useful insights based on that data."),
         # Interval for updating graphs
         dcc.Interval(
             id='interval-component',
