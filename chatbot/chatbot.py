@@ -9,30 +9,22 @@ from pathlib import Path
 import numpy as np
 import time
 from sdr.streamer import sdr_streamer
-
+from processing import classifier
 gemini_client = genai.Client(api_key=CHATBOT_CONFIG['api_key'])
 
 system_prompt = """
-You are an interactive chatbot design to analyze radio frequency data and provide useful insights based on that data.
+You are an interactive chatbot designed to analyze radio frequency data and provide useful insights based on that data.
+You have access to various visualization graphs (time domain, frequency domain, waterfall, and constellation plots).
+When analyzing these graphs, provide detailed technical insights about the signal characteristics you observe.
 """
-
-class PageState(BaseModel):
-    td_image: bytes = None
-    fd_image: bytes = None
-    wf_image: bytes = None
-    con_image: bytes = None
 
 class SignalAnalysis(BaseModel):
     stats: str = None
-
-class SignalAnalysisImage(BaseModel):
-    stats: str = None
-    image_desc: str = None
+    include_graph: str | None = Field(description="which graph to include: 'td', 'fd', 'wf', 'con', or 'all'")
 
 class Chatbot():
 
     def __init__(self):
-        self.page_state: PageState = PageState()
         self.history = []
 
         self.chat = gemini_client.chats.create(
@@ -43,6 +35,7 @@ class Chatbot():
                 temperature=0.5,
                 tools=[
                         self.analyze_signal,
+                        self.classify_signal,
                         self.analyze_time_domain_graph,
                         self.analyze_freq_domain_graph,
                         self.analyze_waterfall_graph,
@@ -58,142 +51,133 @@ class Chatbot():
                 )
             )
         )
-    
-    def update_state(
-        self,
-        time_domain_graph, 
-        freq_domain_graph, 
-        waterfall_graph,
-        constellation_plot,
-    ):
-        print("State Updated")
-        td_image = pio.to_image(time_domain_graph, 'png')
-        fd_image = pio.to_image(freq_domain_graph, 'png')
-        wf_image = pio.to_image(waterfall_graph, 'png')
-        con_image = pio.to_image(constellation_plot, 'png')
 
-        self.page_state.td_image = td_image
-        self.page_state.fd_image = fd_image
-        self.page_state.wf_image = wf_image
-        self.page_state.con_image = con_image
-
-    def get_response(self, message: str):
+    def send_message_with_context(self, message: str, include_graphs: list[tuple] = None):
+        """
+        Send a message with optional graph context.
         
+        Args:
+            message: The text message to send
+            include_graphs: List of graph images in bytes to include
+        """
         try:
-            response = self.chat.send_message(message)
-            bot_response_text = response.text
+            # Build the content parts
+            content_parts = [message]
+            
+            # Add requested images
+            if include_graphs:
+                for name, image in include_graphs:
+                    if image == None:
+                        content_parts.append(f'The {name} is empty, make sure to connect the SDR and start streaming before analysis')
+                    else:
+                        content_parts.append(
+                            types.Part.from_bytes(
+                                data=image,
+                                mime_type='image/png'
+                            )
+                        )
+            
+            response = self.chat.send_message(content_parts)
+            return response.text
 
         except Exception as e:
-            bot_response_text = f"An error occurred during interaction: {e}"
-            print(f"Error in get_response: {e}")
-        
-        return bot_response_text
+            return f"An error occurred during interaction: {e}"
     
+    def get_response(self, message: str, context: dict = {}):
+        """
+        Get response with automatic graph detection.
+        Analyzes the message to determine if graphs should be included.
+        """
+        message_lower = message.lower()
+        include_graphs: list[bytes] = []
+        
+        # Smart detection of which graphs to include
+        if any(word in message_lower for word in ['time domain', 'time-domain', 'amplitude over time', 'waveform']):
+            td_image = pio.to_image(context['td'], 'png') if context['td'] is not None else None
+            include_graphs.append(('time domain plot', td_image))
+        
+        if any(word in message_lower for word in ['frequency', 'spectrum', 'freq domain', 'frequency-domain', 'spectral']):
+            fd_image = pio.to_image(context['fd'], 'png') if context['fd'] is not None else None
+            include_graphs.append(('frequency domain plot', fd_image))
+        
+        if any(word in message_lower for word in ['waterfall', 'spectrogram', 'time-frequency']):
+            wf_image = pio.to_image(context['wf'], 'png') if context['wf'] is not None else None
+            include_graphs.append(('waterfall plot', wf_image))
+        
+        if any(word in message_lower for word in ['constellation', 'iq plot', 'i/q', 'phase']):
+            con_image = pio.to_image(context['con'], 'png') if context['con'] is not None else None
+            include_graphs.append(('constellation plot', con_image))
+        
+        # Generic visualization requests include all graphs
+        if any(word in message_lower for word in ['graph', 'plot', 'chart', 'visualization', 'all graphs', 'show me']):
+            if not include_graphs:  # Only if no specific graph was mentioned
+                td_image = pio.to_image(context['td'], 'png') if context['td'] is not None else None
+                fd_image = pio.to_image(context['fd'], 'png') if context['fd'] is not None else None
+                wf_image = pio.to_image(context['wf'], 'png') if context['wf'] is not None else None
+                con_image = pio.to_image(context['con'], 'png') if context['con'] is not None else None
+
+                include_graphs = [('time domain plot', td_image), ('frequency domain plot', fd_image), 
+                                  ('waterfall plot', wf_image), ('constellation plot', con_image)]
+        
+        return self.send_message_with_context(message, include_graphs if include_graphs else None)
+    
+    def classify_signal(self) -> SignalAnalysis:
+        """Classify the type of signal currently being received."""
+        print("TOOL CALL: classify_signal")
+        data = sdr_streamer.get_latest_data()
+        signal_type = classifier.classify_signal(data['freqs'], data['power_db'])
+        print(signal_type)
+        return SignalAnalysis(
+            stats=f"Signal classification: {signal_type}",
+            include_graph='fd'  # Include frequency domain for classification
+        )
+
     def analyze_signal(self) -> SignalAnalysis:
-        """Get detailed information about a signal sample."""
+        """Get detailed statistical information about the current signal sample."""
         print("TOOL CALL: analyze_signal")
         data = sdr_streamer.get_latest_data()
-        print(data)
-
-        time = data['time']
-        samples = data['samples']
-        freqs = data['freqs']
-        power_db = data['power_db']
-        sample_rate = data['sample_rate']
-        center_freq = data['center_freq']
         
         return SignalAnalysis(
             stats=str(data),
+            include_graph=None
         )
     
-    def analyze_time_domain_graph(self) -> SignalAnalysisImage:
+    def analyze_time_domain_graph(self) -> SignalAnalysis:
+        """Analyze the time domain representation of the signal."""
         print("TOOL CALL: analyze_time_domain_graph")
-        image = self.page_state.td_image
         data = sdr_streamer.get_latest_data()
 
-        response = gemini_client.models.generate_content(
-            model=CHATBOT_CONFIG['model'],
-            contents=[
-                types.Part.from_bytes(
-                    data=image,
-                    mime_type='image/png'
-                ),
-                "Describe this image in as much detail as possible"
-            ]
-        )
-        image_desc = response.text
-        print(image_desc)
-
         return SignalAnalysis(
-            stats=str(data),
-            image_desc=image_desc
+            stats=f"Time domain data - Sample rate: {data['sample_rate']} Hz, Center freq: {data['center_freq']} Hz",
+            include_graph='td'
         )
 
-    def analyze_freq_domain_graph(self) -> SignalAnalysisImage:
+    def analyze_freq_domain_graph(self) -> SignalAnalysis:
+        """Analyze the frequency domain representation of the signal."""
         print("TOOL CALL: analyze_freq_domain_graph")
-        image = self.page_state.fd_image
         data = sdr_streamer.get_latest_data()
-
-        response = gemini_client.models.generate_content(
-            model=CHATBOT_CONFIG['model'],
-            contents=[
-                types.Part.from_bytes(
-                    data=image,
-                    mime_type='image/png'
-                ),
-                "Describe this image in as much detail as possible"
-            ]
-        )
-        image_desc = response.text
-        print(image_desc)
 
         return SignalAnalysis(
-            stats=str(data),
-            image_desc=image_desc
+            stats=f"Frequency domain data - Sample rate: {data['sample_rate']} Hz, Center freq: {data['center_freq']} Hz",
+            include_graph='fd'
         )
 
-    def analyze_waterfall_graph(self) -> SignalAnalysisImage:
+    def analyze_waterfall_graph(self) -> SignalAnalysis:
+        """Analyze the waterfall plot showing signal changes over time."""
         print("TOOL CALL: analyze_waterfall_graph")
-        image = self.page_state.wf_image
         data = sdr_streamer.get_latest_data()
 
-        response = gemini_client.models.generate_content(
-            model=CHATBOT_CONFIG['model'],
-            contents=[
-                types.Part.from_bytes(
-                    data=image,
-                    mime_type='image/png'
-                ),
-                "Describe this image in as much detail as possible"
-            ]
-        )
-        image_desc = response.text
-        print(image_desc)
-
-        return SignalAnalysisImage(
-            stats=str(data),
-            image_desc=image_desc
+        return SignalAnalysis(
+            stats=f"Waterfall data - Sample rate: {data['sample_rate']} Hz, Center freq: {data['center_freq']} Hz",
+            include_graph='wf'
         )
 
-    def analyze_constellation_graph(self) -> SignalAnalysisImage:
+    def analyze_constellation_graph(self) -> SignalAnalysis:
+        """Analyze the constellation diagram of the signal."""
         print("TOOL CALL: analyze_constellation_graph")
-        image = self.page_state.con_image
         data = sdr_streamer.get_latest_data()
 
-        response = gemini_client.models.generate_content(
-            model=CHATBOT_CONFIG['model'],
-            contents=[
-                types.Part.from_bytes(
-                    data=image,
-                    mime_type='image/png'
-                ),
-                "Describe this image in as much detail as possible"
-            ]
-        )
-        image_desc = response.text
-        print(image_desc)
-
-        return SignalAnalysisImage(
-            stats=str(data),
-            image_desc=image_desc
+        return SignalAnalysis(
+            stats=f"Constellation data - Sample rate: {data['sample_rate']} Hz, Center freq: {data['center_freq']} Hz",
+            include_graph='con'
         )

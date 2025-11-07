@@ -108,9 +108,15 @@ def register_callbacks(app):
         if last_message['type'] != 'user':
             return messages, False
 
+        context = {
+            'td': td_fig,
+            'fd': fd_fig,
+            'wf': wf_fig,
+            'con': con_fig
+        }
+
         # Generate bot response
-        chatbot_sessions['default'].update_state(td_fig, fd_fig, wf_fig, con_fig)
-        bot_reply = chatbot_sessions['default'].get_response(last_message['content'])
+        bot_reply = chatbot_sessions['default'].get_response(last_message['content'], context)
         
         # Add bot message
         messages.append({
