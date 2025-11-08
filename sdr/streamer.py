@@ -19,6 +19,7 @@ class SDRDataStreamer:
         self.running = False
         self.thread = None
         self.connected = False
+        self._reconnect_lock = threading.Lock()
 
     def connect(self):
         """Connect to the SDR device"""
@@ -79,6 +80,18 @@ class SDRDataStreamer:
         # Attempt to reconnect
         return self.connect()
 
+    def _attempt_reconnect(self, max_attempts=5, base_delay=0.5):
+        """Internal helper to try reconnecting with backoff. Returns True on success."""
+        with self._reconnect_lock:
+            for attempt in range(1, max_attempts + 1):
+                ok = self.reconnect()
+                if ok:
+                    logger.info(f"Auto-reconnect succeeded on attempt {attempt}.")
+                    return True
+                delay = base_delay * (2 ** (attempt - 1))
+                time.sleep(min(delay, 5.0))
+        return False
+
     def _stream_data(self):
         """Continuously read SDR data with backoff and minimal interference."""
         consecutive_errors = 0
@@ -89,9 +102,14 @@ class SDRDataStreamer:
 
         while self.running:
             if not self.is_connected():
-                logger.error("SDR connection lost before read; stopping stream.")
-                self.running = False
-                break
+                logger.warning("SDR not connected; trying auto-reconnect before stopping...")
+                if self._attempt_reconnect(max_attempts=5, base_delay=0.5):
+                    consecutive_errors = 0
+                    backoff = 0.1
+                else:
+                    logger.error("Auto-reconnect failed; stopping stream.")
+                    self.running = False
+                    break
             try:
                 samples = self.sdr.rx()  # Blocking hardware read
                 consecutive_errors = 0
@@ -116,12 +134,26 @@ class SDRDataStreamer:
             except OSError as e:
                 consecutive_errors += 1
                 # Fatal errors: 9 (bad descriptor), 10054 (connection reset)
-                if e.errno in (9, 10054):
-                    logger.error(f"Fatal OS error errno={e.errno}; terminating stream.")
+                err = getattr(e, 'errno', None)
+                if err in (9, 10054):
+                    logger.error(f"Fatal OS error errno={err}; attempting auto-reconnect.")
                     self.connected = False
+                    if self._attempt_reconnect(max_attempts=5, base_delay=0.5):
+                        consecutive_errors = 0
+                        backoff = 0.1
+                        continue
+                    logger.error("Auto-reconnect failed after fatal error; stopping stream.")
                     self.running = False
                     break
-                logger.error(f"Non-fatal OS error reading SDR (errno={e.errno}): {e}")
+                # Handle host unreachable / timeouts by reconnecting too
+                if err in (110, 113):  # 110 ETIMEDOUT/host unreachable (platform-dependent), 113 EHOSTUNREACH
+                    logger.error(f"Non-fatal OS error reading SDR (errno={err}): {e}")
+                    if self._attempt_reconnect(max_attempts=3, base_delay=0.2):
+                        consecutive_errors = 0
+                        backoff = 0.1
+                        continue
+                else:
+                    logger.error(f"Non-fatal OS error reading SDR (errno={err}): {e}")
             except Exception as e:
                 consecutive_errors += 1
                 logger.error(f"Error reading SDR data: {e}")
@@ -131,9 +163,14 @@ class SDRDataStreamer:
                 logger.warning(f"Read error #{consecutive_errors}; backoff {backoff:.2f}s")
                 time.sleep(backoff)
                 if consecutive_errors >= 3:
-                    logger.error("Too many consecutive errors; stopping stream.")
-                    self.running = False
+                    logger.warning("Too many consecutive errors; attempting auto-reconnect.")
                     self.connected = False
+                    if self._attempt_reconnect(max_attempts=5, base_delay=0.5):
+                        consecutive_errors = 0
+                        backoff = 0.1
+                        continue
+                    logger.error("Auto-reconnect failed after repeated errors; stopping stream.")
+                    self.running = False
                     break
 
     def get_status(self):

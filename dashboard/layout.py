@@ -77,6 +77,17 @@ layout = dbc.Container(
                 ), md=6, class_name='home-page-column'),
             ]
         ),
+        dbc.Row(
+            [
+                dbc.Col(dbc.Card(
+                    dbc.CardBody([
+                        html.H3("Signal Classification"),
+                        html.Div(id='classification-text', style={'fontSize': '16px', 'whiteSpace': 'pre-wrap'})
+                    ]),
+                    class_name="home-page-card",
+                ), md=12)
+            ]
+        ),
         load_mini_chatbot_layout("Hi! I am an interactive chatbot design to analyze radio frequency data and provide useful insights based on that data."),
         # Interval for updating graphs
         dcc.Interval(

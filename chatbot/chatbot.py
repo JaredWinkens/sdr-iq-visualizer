@@ -15,7 +15,8 @@ gemini_client = genai.Client(api_key=CHATBOT_CONFIG['api_key'])
 system_prompt = """
 You are an interactive chatbot designed to analyze radio frequency data and provide useful insights based on that data.
 You have access to various visualization graphs (time domain, frequency domain, waterfall, and constellation plots).
-When analyzing these graphs, provide detailed technical insights about the signal characteristics you observe.
+When the user asks what signal is present (e.g., "what signal am I seeing?"), first call the classify_signal tool to get the current classification and reasons, then summarize concisely.
+When analyzing graphs, provide clear technical insights about the signal characteristics and reference the classifier result when available.
 """
 
 class SignalAnalysis(BaseModel):
@@ -122,15 +123,36 @@ class Chatbot():
         return self.send_message_with_context(message, include_graphs if include_graphs else None)
     
     def classify_signal(self) -> SignalAnalysis:
-        """Classify the type of signal currently being received."""
+        """Classify the type of signal currently being received (advanced)."""
         print("TOOL CALL: classify_signal")
         data = sdr_streamer.get_latest_data()
-        signal_type = classifier.classify_signal(data['freqs'], data['power_db'])
-        print(signal_type)
-        return SignalAnalysis(
-            stats=f"Signal classification: {signal_type}",
-            include_graph='fd'  # Include frequency domain for classification
-        )
+        if data is None:
+            return SignalAnalysis(
+                stats="No SDR data available yet. Please start streaming.",
+                include_graph=None
+            )
+        try:
+            res = classifier.classify_signal_advanced(data['freqs'], data['power_db'])
+            label = res.get('label', 'Unknown')
+            conf = res.get('confidence', 0.0)
+            feats = res.get('features', {})
+            obw = feats.get('bandwidth_hz_20db', 0.0) / 1e6
+            snr = feats.get('snr_db', 0.0)
+            reasons = res.get('reasons', [])
+            reason_text = "\n- " + "\n- ".join(reasons) if reasons else ""
+            text = (
+                f"Classification: {label} (conf {conf:.2f})\n"
+                f"OBW20={obw:.2f} MHz, SNR={snr:.1f} dB{reason_text}"
+            )
+            return SignalAnalysis(
+                stats=text,
+                include_graph='fd'
+            )
+        except Exception as e:
+            return SignalAnalysis(
+                stats=f"Classification error: {e}",
+                include_graph='fd'
+            )
 
     def analyze_signal(self) -> SignalAnalysis:
         """Get detailed statistical information about the current signal sample."""

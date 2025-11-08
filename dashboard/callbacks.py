@@ -7,6 +7,7 @@ from collections import deque
 import logging
 
 from sdr.streamer import sdr_streamer
+from processing.classifier import classify_signal_advanced
 
 logger = logging.getLogger(__name__)
 
@@ -81,7 +82,8 @@ def register_callbacks(app):
          Output('freq-domain-graph', 'figure'),
          Output('waterfall-graph', 'figure'),
          Output('constellation-plot', 'figure'),
-         Output('pause-status', 'children')],
+         Output('pause-status', 'children'),
+         Output('classification-text', 'children')],
         [Input('interval-component', 'n_intervals'),
          Input('pause-toggle', 'value')],
         prevent_initial_call=True
@@ -92,14 +94,14 @@ def register_callbacks(app):
         # Handle pause
         paused = 1 in (pause_value or [])
         if paused:
-            return no_update, no_update, no_update, no_update, "Paused"
+            return no_update, no_update, no_update, no_update, "Paused", no_update
 
         # Get the newest SDR data
         data = sdr_streamer.get_latest_data()
 
         if data is None:
             empty = go.Figure()
-            return empty, empty, empty, empty, "Waiting for data..."
+            return empty, empty, empty, empty, "Waiting for data...", ""
 
         samples = data['samples']
         freqs = data['freqs']
@@ -215,4 +217,23 @@ def register_callbacks(app):
             xaxis=dict(scaleanchor="y", scaleratio=1)  # Square aspect ratio
         )
 
-        return time_fig, freq_fig, waterfall_fig, constellation_fig, ""
+        # Classification
+        try:
+            res = classify_signal_advanced(freqs, power_db)
+            label = res.get('label', 'Unknown')
+            conf = res.get('confidence', 0.0)
+            feats = res.get('features', {})
+            bw20 = feats.get('bandwidth_hz_20db', 0.0) / 1e6
+            snr = feats.get('snr_db', 0.0)
+            flat = feats.get('spectral_flatness', 0.0)
+            kurt = feats.get('spectral_kurtosis', 0.0)
+            peaks = feats.get('peak_count', 0)
+            explain = res.get('explanation', '')
+            cls_text = (
+                f"Detected: {label} (conf {conf:.2f}) — OBW20={bw20:.2f}MHz SNR={snr:.1f}dB | Flat {flat:.2f} | Kurt {kurt:.2f} | Peaks {peaks}"
+                f"\n{explain}"  # newline instead of HTML span for cleaner rendering
+            )
+        except Exception as e:
+            cls_text = f"Classification unavailable: {e}"
+
+        return time_fig, freq_fig, waterfall_fig, constellation_fig, "", cls_text
