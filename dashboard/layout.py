@@ -21,6 +21,15 @@ layout = dbc.Container(
                             style={'margin': '10px', 'padding': '10px'}),
                 dbc.Button('Stop Streaming', id='stop-btn', n_clicks=0,
                             style={'margin': '10px', 'padding': '10px'}),
+                dbc.Checklist(
+                    options=[{"label": " Pause Updates", "value": 1}],
+                    value=[],
+                    id="pause-toggle",
+                    switch=True,
+                    inline=True,
+                    style={'display': 'inline-block', 'margin': '10px'}
+                ),
+                html.Span(id='pause-status', style={'margin': '10px', 'color': '#666'}),
                 html.Div(id='status-div', style={'margin': '10px', 'fontWeight': 'bold'})
             ], style={'textAlign': 'center'}),
         ),

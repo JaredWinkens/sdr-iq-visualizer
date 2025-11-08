@@ -46,18 +46,8 @@ class SDRDataStreamer:
             return False
     
     def is_connected(self):
-        """Check if SDR connection is still valid"""
-        if not self.sdr or not self.connected:
-            return False
-        
-        try:
-            # Try to access a simple property to test connection
-            _ = self.sdr.sample_rate
-            return True
-        except Exception as e:
-            logger.warning(f"Connection test failed: {e}")
-            self.connected = False
-            return False
+        """Lightweight connection check (no property probing to avoid rx() interference)."""
+        return self.sdr is not None and self.connected
 
     def start_streaming(self):
         if not self.sdr:
@@ -90,27 +80,28 @@ class SDRDataStreamer:
         return self.connect()
 
     def _stream_data(self):
-        """Internal method to continuously read SDR data"""
+        """Continuously read SDR data with backoff and minimal interference."""
+        consecutive_errors = 0
+        backoff = 0.1
+        max_backoff = 1.6
+        self.last_success_ts = None
+        self.total_frames = 0
+
         while self.running:
+            if not self.is_connected():
+                logger.error("SDR connection lost before read; stopping stream.")
+                self.running = False
+                break
             try:
-                # Check if connection is still valid before attempting to read
-                if not self.is_connected():
-                    logger.error("SDR connection lost. Stopping data stream.")
-                    self.running = False
-                    break
-                
-                # Read samples from SDR
-                samples = self.sdr.rx()
-                
-                # Calculate FFT for frequency domain representation
+                samples = self.sdr.rx()  # Blocking hardware read
+                consecutive_errors = 0
+                backoff = 0.1
+
+                # FFT & spectrum
                 fft_data = np.fft.fftshift(np.fft.fft(samples))
-                freqs = np.fft.fftshift(np.fft.fftfreq(len(samples), 1/self.sample_rate))
-                freqs = freqs + self.center_freq  # Shift to actual frequencies
-                
-                # Calculate power spectrum (dB)
-                power_db = 20 * np.log10(np.abs(fft_data) + 1e-10)
-                
-                # Prepare data for plotting
+                freqs = np.fft.fftshift(np.fft.fftfreq(len(samples), 1 / self.sample_rate)) + self.center_freq
+                power_db = 20 * np.log10(np.abs(fft_data) + 1e-12)
+
                 plot_data = {
                     'time': time.time(),
                     'samples': samples,
@@ -119,21 +110,41 @@ class SDRDataStreamer:
                     'sample_rate': self.sample_rate,
                     'center_freq': self.center_freq
                 }
-                
                 self._push(plot_data)
-                        
+                self.last_success_ts = plot_data['time']
+                self.total_frames += 1
             except OSError as e:
-                if e.errno == 9:  # Bad file descriptor
-                    logger.error("Bad file descriptor error - SDR connection lost")
+                consecutive_errors += 1
+                # Fatal errors: 9 (bad descriptor), 10054 (connection reset)
+                if e.errno in (9, 10054):
+                    logger.error(f"Fatal OS error errno={e.errno}; terminating stream.")
                     self.connected = False
                     self.running = False
                     break
-                else:
-                    logger.error(f"OS Error reading SDR data: {e}")
-                    time.sleep(0.1)  # Brief pause before retrying
+                logger.error(f"Non-fatal OS error reading SDR (errno={e.errno}): {e}")
             except Exception as e:
+                consecutive_errors += 1
                 logger.error(f"Error reading SDR data: {e}")
-                time.sleep(0.1)  # Brief pause before retrying
+
+            if consecutive_errors:
+                backoff = min(backoff * 2, max_backoff)
+                logger.warning(f"Read error #{consecutive_errors}; backoff {backoff:.2f}s")
+                time.sleep(backoff)
+                if consecutive_errors >= 3:
+                    logger.error("Too many consecutive errors; stopping stream.")
+                    self.running = False
+                    self.connected = False
+                    break
+
+    def get_status(self):
+        """Return a dict of streaming status metrics."""
+        return {
+            'connected': self.connected,
+            'running': self.running,
+            'queue_size': self.data_queue.qsize(),
+            'last_success_age_ms': (time.time() - self.last_success_ts) * 1000 if getattr(self, 'last_success_ts', None) else None,
+            'total_frames': getattr(self, 'total_frames', 0)
+        }
 
     def _push(self, data):
         try:

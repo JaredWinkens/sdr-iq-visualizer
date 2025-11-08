@@ -2,7 +2,7 @@
 
 import numpy as np
 import plotly.graph_objs as go
-from dash import Input, Output, callback_context
+from dash import Input, Output, callback_context, no_update
 from collections import deque
 import logging
 
@@ -80,19 +80,26 @@ def register_callbacks(app):
         [Output('time-domain-graph', 'figure'),
          Output('freq-domain-graph', 'figure'),
          Output('waterfall-graph', 'figure'),
-         Output('constellation-plot', 'figure')],
-        Input('interval-component', 'n_intervals'),
+         Output('constellation-plot', 'figure'),
+         Output('pause-status', 'children')],
+        [Input('interval-component', 'n_intervals'),
+         Input('pause-toggle', 'value')],
         prevent_initial_call=True
     )
-    def update_graphs(n):
+    def update_graphs(n, pause_value):
         global waterfall_data, waterfall_freqs
+
+        # Handle pause
+        paused = 1 in (pause_value or [])
+        if paused:
+            return no_update, no_update, no_update, no_update, "Paused"
 
         # Get the newest SDR data
         data = sdr_streamer.get_latest_data()
 
         if data is None:
             empty = go.Figure()
-            return empty, empty, empty
+            return empty, empty, empty, empty, "Waiting for data..."
 
         samples = data['samples']
         freqs = data['freqs']
@@ -131,6 +138,27 @@ def register_callbacks(app):
             name='Power Spectrum',
             line=dict(color='green')
         ))
+        # Peak detection (use scipy if available, fallback to simple method)
+        peaks_idx = []
+        try:
+            from scipy.signal import find_peaks
+            # dynamic distance to avoid clutter; prominence for meaningful peaks
+            dist = max(5, len(power_db)//200)
+            peaks_idx, _ = find_peaks(power_db, distance=dist, prominence=3)
+        except Exception:
+            # Fallback simple local maxima above median+5dB
+            med = float(np.median(power_db))
+            for i in range(1, len(power_db)-1):
+                if power_db[i] > power_db[i-1] and power_db[i] > power_db[i+1] and power_db[i] > med + 5:
+                    peaks_idx.append(i)
+        if len(peaks_idx):
+            freq_fig.add_trace(go.Scatter(
+                x=(freqs[peaks_idx] / 1e6),
+                y=power_db[peaks_idx],
+                mode='markers',
+                name='Peaks',
+                marker=dict(color='orange', size=8, symbol='x')
+            ))
         freq_fig.update_layout(
             title='Frequency Domain - Power Spectrum',
             xaxis_title='Frequency (MHz)',
@@ -187,4 +215,4 @@ def register_callbacks(app):
             xaxis=dict(scaleanchor="y", scaleratio=1)  # Square aspect ratio
         )
 
-        return time_fig, freq_fig, waterfall_fig, constellation_fig
+        return time_fig, freq_fig, waterfall_fig, constellation_fig, ""
