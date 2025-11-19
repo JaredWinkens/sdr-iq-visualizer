@@ -25,34 +25,55 @@ class SignalAnalysis(BaseModel):
 
 class Chatbot():
 
-    def __init__(self):
-        self.history = []
-
-        self.chat = gemini_client.chats.create(
-            model=CHATBOT_CONFIG['model'],
-            history=self.history,
-            config=types.GenerateContentConfig(
-                system_instruction=system_prompt,
-                temperature=0.5,
-                tools=[
-                        self.analyze_signal,
-                        self.classify_signal,
-                        self.analyze_time_domain_graph,
-                        self.analyze_freq_domain_graph,
-                        self.analyze_waterfall_graph,
-                        self.analyze_constellation_graph
-                    ],
-                automatic_function_calling=types.AutomaticFunctionCallingConfig(
-                    disable=False
-                ),
-                tool_config=types.ToolConfig(
-                    function_calling_config=types.FunctionCallingConfig(
-                    mode="AUTO", #allowed_function_names=["get_current_temperature"]
-                    )
+    def __init__(self, initial_history: list = [], model: str = CHATBOT_CONFIG['default_model']):
+        
+        self.history = initial_history
+        
+        self.model = model
+        
+        self.config = types.GenerateContentConfig(
+            system_instruction=system_prompt,
+            temperature=0.5,
+            tools=[
+                    self.analyze_signal,
+                    self.classify_signal,
+                    self.analyze_time_domain_graph,
+                    self.analyze_freq_domain_graph,
+                    self.analyze_waterfall_graph,
+                    self.analyze_constellation_graph
+                ],
+            automatic_function_calling=types.AutomaticFunctionCallingConfig(
+                disable=False
+            ),
+            tool_config=types.ToolConfig(
+                function_calling_config=types.FunctionCallingConfig(
+                mode="AUTO", #allowed_function_names=["get_current_temperature"]
                 )
             )
         )
 
+        self.chat = gemini_client.chats.create(
+            model=self.model,
+            history=self.history,
+            config=self.config
+        )
+
+    def change_model(self, new_model: str = CHATBOT_CONFIG['default_model']):
+        history = self.chat.get_history()
+        self.chat = gemini_client.chats.create(
+            model=new_model,
+            history=history,
+            config=self.config
+        )
+        self.model = new_model
+    
+    def clear_history(self):
+        self.chat = gemini_client.chats.create(
+            model=self.model,
+            history=[],
+            config=self.config
+        )
+    
     def send_message_with_context(self, message: str, include_graphs: list[tuple] = None):
         """
         Send a message with optional graph context.

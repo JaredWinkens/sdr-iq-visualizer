@@ -39,4 +39,4 @@ print("\nNote: Make sure your SDR device is connected and accessible")
 
 # Run server
 if __name__ == "__main__":
-    app.run(debug=False, host=DASH_CONFIGS['host'], port=DASH_CONFIGS['port'])
+    app.run(debug=True, dev_tools_hot_reload=True, host=DASH_CONFIGS['host'], port=DASH_CONFIGS['port'])

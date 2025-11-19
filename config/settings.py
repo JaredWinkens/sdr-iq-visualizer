@@ -10,7 +10,14 @@ DASH_CONFIGS = {
 
 CHATBOT_CONFIG = {
     'api_key': os.getenv('GOOGLE_API_KEY'),
-    'model': "gemini-2.5-flash"
+    'default_model': "gemini-2.5-flash-lite",
+    'all_models': [
+        "gemini-2.5-pro",
+        "gemini-2.5-flash",
+        "gemini-2.5-flash-lite",
+        "gemini-2.0-flash",
+        "gemini-2.0-flash-lite"
+    ]
 }
 
 # SDR Device Configuration
