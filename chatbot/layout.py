@@ -78,9 +78,9 @@ def load_mini_chatbot_layout(initial_prompt: str):
                           size="sm",
                           className="chat-quick-action-btn",
                           title="Clear conversation"),
-                html.Span("•", className="text-muted mx-1"),
+                html.Span("•", className="text-muted mx-1", style={'display': 'none'}),
                 html.Span(id="chat-message-count", children="0 messages", 
-                         className="text-muted small"),
+                         className="text-muted small", style={'display': 'none'}),
                 dbc.Select(
                     id="chatbot-select-model",
                     options=[{"label": l, "value": l} for l in CHATBOT_CONFIG['all_models']],

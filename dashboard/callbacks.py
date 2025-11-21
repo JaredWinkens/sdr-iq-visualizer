@@ -2,10 +2,14 @@
 
 import numpy as np
 import plotly.graph_objs as go
-from dash import Input, Output, callback_context, no_update
+from dash import Input, Output, callback_context, no_update, dcc
 from collections import deque
 import logging
-
+import json
+import io
+import zipfile
+from datetime import datetime
+import dash_bootstrap_components as dbc
 from sdr.streamer import sdr_streamer
 from processing.classifier import classify_signal_advanced
 
@@ -237,3 +241,112 @@ def register_callbacks(app):
             cls_text = f"Classification unavailable: {e}"
 
         return time_fig, freq_fig, waterfall_fig, constellation_fig, "", cls_text
+    
+    
+    # ---- Download Sample of Live Feed ----
+    @app.callback(
+        Output('sample-download-location', 'data'),
+        Output('alert-div', 'children', allow_duplicate=True),
+        Input('download-btn', 'n_clicks'),
+        prevent_initial_call=True
+    )
+    def download_sample_data(n_clicks):
+        """
+        Download a sample of live SDR data in SigMF format.
+        Creates both .sigmf-data (binary IQ) and .sigmf-meta (JSON metadata)
+        packaged together in a zip file for easy sharing and archival.
+        """
+        if n_clicks == 0:
+            return no_update, no_update
+        
+        # Get current data from stream
+        data = sdr_streamer.get_latest_data()
+        
+        if data is None:
+            logger.warning("No data available for download")
+            return no_update, dbc.Alert(
+                                    "No data available for download. Please start streaming.",
+                                    id="alert-auto",
+                                    is_open=True,
+                                    duration=4000,
+                                    color='danger',
+                                    fade=True
+                                ),
+        
+        samples = data['samples']
+        sample_rate = data['sample_rate']
+        center_freq = data['center_freq']
+        
+        # Generate timestamp for filenames
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        base_filename = f"sdr_sample_{timestamp}"
+        
+        # Create metadata dictionary (SigMF format)
+        metadata = {
+            "global": {
+                "core:datatype": "cf32_le",  # complex float32 little-endian
+                "core:sample_rate": int(sample_rate),
+                "core:version": "1.0.0",
+                "core:description": "SDR live stream sample from IQ Visualizer",
+                "core:author": "SDR IQ Visualizer Dashboard",
+                "core:recorder": "PlutoSDR via pyadi-iio",
+                "core:hw": f"PlutoSDR @ {sdr_streamer.uri}",
+                "core:license": "CC0-1.0"
+            },
+            "captures": [
+                {
+                    "core:sample_start": 0,
+                    "core:frequency": int(center_freq),
+                    "core:datetime": datetime.utcnow().isoformat() + 'Z'
+                }
+            ],
+            "annotations": []
+        }
+        
+        # Convert samples to binary format (complex64 = cf32)
+        if samples.dtype != np.complex64:
+            samples = samples.astype(np.complex64)
+        
+        binary_data = samples.tobytes()
+        metadata_json = json.dumps(metadata, indent=2)
+        
+        # Create a zip file containing both .sigmf-data and .sigmf-meta
+        zip_buffer = io.BytesIO()
+        with zipfile.ZipFile(zip_buffer, 'w', zipfile.ZIP_DEFLATED) as zip_file:
+            # Add binary data file
+            zip_file.writestr(f"{base_filename}.sigmf-data", binary_data)
+            # Add metadata JSON file
+            zip_file.writestr(f"{base_filename}.sigmf-meta", metadata_json)
+            # Add a README for user convenience
+            readme_content = f"""SigMF Recording from SDR IQ Visualizer
+            =====================================
+
+            Timestamp: {timestamp}
+            Sample Rate: {sample_rate/1e6:.2f} MHz
+            Center Frequency: {center_freq/1e6:.2f} MHz
+            Number of Samples: {len(samples)}
+            Duration: {len(samples)/sample_rate:.3f} seconds
+
+            Files:
+            - {base_filename}.sigmf-data: Binary IQ samples (complex float32)
+            - {base_filename}.sigmf-meta: SigMF metadata (JSON)
+
+            To use with GNU Radio, inspectrum, or other tools:
+            1. Extract both files to the same directory
+            2. Keep the base filename the same
+            3. Open the .sigmf-data file in your SDR tool
+
+            SigMF Format: https://github.com/gnuradio/SigMF
+            """
+            zip_file.writestr("README.txt", readme_content)
+        
+        zip_buffer.seek(0)
+        
+        logger.info(f"Generated SigMF download: {base_filename}.zip ({len(samples)} samples)")
+        
+        return dcc.send_bytes(
+            zip_buffer.getvalue(),
+            filename=f"{base_filename}_sigmf.zip"
+        ), no_update
+
+

@@ -11,3 +11,20 @@
     box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2); /* Add a subtle shadow */
     transition: transform 0.3s ease-in-out, box-shadow 0.3s ease-in-out; /* Smooth transition */
 }
+
+#alert-div {
+    margin: 10px;
+    font-weight: bold; 
+    width: 300px;
+    height: 100px;
+    position: fixed; /* Positions the element relative to the viewport */
+    bottom: 0; /* Aligns the element to the bottom edge of the viewport */
+    left: 50%; /* Moves the element's left edge to the horizontal center */
+    transform: translateX(-50%); /* Adjusts the element's position to truly center it */
+    z-index: 9999; /* Ensures the element appears above other content */
+    /* Optional: Set a width if desired, otherwise it will be based on content */
+    /* width: 100%; */ 
+    /* Optional: Add padding or other styling as needed */
+    /* padding: 10px; */
+    /* background-color: lightblue; */
+}
