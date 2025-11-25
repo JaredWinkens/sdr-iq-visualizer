@@ -4,6 +4,7 @@ import logging
 from dash import dash
 import dashboard.layout as dashboard_layout
 import dashboard.callbacks as dashboard_callbacks
+import chatbot.callbacks as chatbot_callbacks
 import dash_bootstrap_components as dbc
 from config.settings import DASH_CONFIGS
 
@@ -24,6 +25,7 @@ app.layout = dashboard_layout.layout
 
 # Register callbacks
 dashboard_callbacks.register_callbacks(app)
+chatbot_callbacks.register_callbacks(app)
 
 # Print startup messages
 print("Starting SDR Real-time Visualization Dashboard")
@@ -37,4 +39,4 @@ print("\nNote: Make sure your SDR device is connected and accessible")
 
 # Run server
 if __name__ == "__main__":
-    app.run(debug=True, host=DASH_CONFIGS['host'], port=DASH_CONFIGS['port'])
+    app.run(debug=True, dev_tools_hot_reload=True, host=DASH_CONFIGS['host'], port=DASH_CONFIGS['port'])

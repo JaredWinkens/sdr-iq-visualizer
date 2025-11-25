@@ -19,6 +19,7 @@ class SDRDataStreamer:
         self.running = False
         self.thread = None
         self.connected = False
+        self._reconnect_lock = threading.Lock()
 
     def connect(self):
         """Connect to the SDR device"""
@@ -46,18 +47,8 @@ class SDRDataStreamer:
             return False
     
     def is_connected(self):
-        """Check if SDR connection is still valid"""
-        if not self.sdr or not self.connected:
-            return False
-        
-        try:
-            # Try to access a simple property to test connection
-            _ = self.sdr.sample_rate
-            return True
-        except Exception as e:
-            logger.warning(f"Connection test failed: {e}")
-            self.connected = False
-            return False
+        """Lightweight connection check (no property probing to avoid rx() interference)."""
+        return self.sdr is not None and self.connected
 
     def start_streaming(self):
         if not self.sdr:
@@ -89,28 +80,46 @@ class SDRDataStreamer:
         # Attempt to reconnect
         return self.connect()
 
+    def _attempt_reconnect(self, max_attempts=5, base_delay=0.5):
+        """Internal helper to try reconnecting with backoff. Returns True on success."""
+        with self._reconnect_lock:
+            for attempt in range(1, max_attempts + 1):
+                ok = self.reconnect()
+                if ok:
+                    logger.info(f"Auto-reconnect succeeded on attempt {attempt}.")
+                    return True
+                delay = base_delay * (2 ** (attempt - 1))
+                time.sleep(min(delay, 5.0))
+        return False
+
     def _stream_data(self):
-        """Internal method to continuously read SDR data"""
+        """Continuously read SDR data with backoff and minimal interference."""
+        consecutive_errors = 0
+        backoff = 0.1
+        max_backoff = 1.6
+        self.last_success_ts = None
+        self.total_frames = 0
+
         while self.running:
-            try:
-                # Check if connection is still valid before attempting to read
-                if not self.is_connected():
-                    logger.error("SDR connection lost. Stopping data stream.")
+            if not self.is_connected():
+                logger.warning("SDR not connected; trying auto-reconnect before stopping...")
+                if self._attempt_reconnect(max_attempts=5, base_delay=0.5):
+                    consecutive_errors = 0
+                    backoff = 0.1
+                else:
+                    logger.error("Auto-reconnect failed; stopping stream.")
                     self.running = False
                     break
-                
-                # Read samples from SDR
-                samples = self.sdr.rx()
-                
-                # Calculate FFT for frequency domain representation
+            try:
+                samples = self.sdr.rx()  # Blocking hardware read
+                consecutive_errors = 0
+                backoff = 0.1
+
+                # FFT & spectrum
                 fft_data = np.fft.fftshift(np.fft.fft(samples))
-                freqs = np.fft.fftshift(np.fft.fftfreq(len(samples), 1/self.sample_rate))
-                freqs = freqs + self.center_freq  # Shift to actual frequencies
-                
-                # Calculate power spectrum (dB)
-                power_db = 20 * np.log10(np.abs(fft_data) + 1e-10)
-                
-                # Prepare data for plotting
+                freqs = np.fft.fftshift(np.fft.fftfreq(len(samples), 1 / self.sample_rate)) + self.center_freq
+                power_db = 20 * np.log10(np.abs(fft_data) + 1e-12)
+
                 plot_data = {
                     'time': time.time(),
                     'samples': samples,
@@ -119,21 +128,60 @@ class SDRDataStreamer:
                     'sample_rate': self.sample_rate,
                     'center_freq': self.center_freq
                 }
-                
                 self._push(plot_data)
-                        
+                self.last_success_ts = plot_data['time']
+                self.total_frames += 1
             except OSError as e:
-                if e.errno == 9:  # Bad file descriptor
-                    logger.error("Bad file descriptor error - SDR connection lost")
+                consecutive_errors += 1
+                # Fatal errors: 9 (bad descriptor), 10054 (connection reset)
+                err = getattr(e, 'errno', None)
+                if err in (9, 10054):
+                    logger.error(f"Fatal OS error errno={err}; attempting auto-reconnect.")
                     self.connected = False
+                    if self._attempt_reconnect(max_attempts=5, base_delay=0.5):
+                        consecutive_errors = 0
+                        backoff = 0.1
+                        continue
+                    logger.error("Auto-reconnect failed after fatal error; stopping stream.")
                     self.running = False
                     break
+                # Handle host unreachable / timeouts by reconnecting too
+                if err in (110, 113):  # 110 ETIMEDOUT/host unreachable (platform-dependent), 113 EHOSTUNREACH
+                    logger.error(f"Non-fatal OS error reading SDR (errno={err}): {e}")
+                    if self._attempt_reconnect(max_attempts=3, base_delay=0.2):
+                        consecutive_errors = 0
+                        backoff = 0.1
+                        continue
                 else:
-                    logger.error(f"OS Error reading SDR data: {e}")
-                    time.sleep(0.1)  # Brief pause before retrying
+                    logger.error(f"Non-fatal OS error reading SDR (errno={err}): {e}")
             except Exception as e:
+                consecutive_errors += 1
                 logger.error(f"Error reading SDR data: {e}")
-                time.sleep(0.1)  # Brief pause before retrying
+
+            if consecutive_errors:
+                backoff = min(backoff * 2, max_backoff)
+                logger.warning(f"Read error #{consecutive_errors}; backoff {backoff:.2f}s")
+                time.sleep(backoff)
+                if consecutive_errors >= 3:
+                    logger.warning("Too many consecutive errors; attempting auto-reconnect.")
+                    self.connected = False
+                    if self._attempt_reconnect(max_attempts=5, base_delay=0.5):
+                        consecutive_errors = 0
+                        backoff = 0.1
+                        continue
+                    logger.error("Auto-reconnect failed after repeated errors; stopping stream.")
+                    self.running = False
+                    break
+
+    def get_status(self):
+        """Return a dict of streaming status metrics."""
+        return {
+            'connected': self.connected,
+            'running': self.running,
+            'queue_size': self.data_queue.qsize(),
+            'last_success_age_ms': (time.time() - self.last_success_ts) * 1000 if getattr(self, 'last_success_ts', None) else None,
+            'total_frames': getattr(self, 'total_frames', 0)
+        }
 
     def _push(self, data):
         try:
