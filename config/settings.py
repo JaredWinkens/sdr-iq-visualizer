@@ -2,10 +2,10 @@ from dotenv import load_dotenv
 import os
 load_dotenv()
 
-# Dash App Configuration
+# Dash App Configuration (overridable via environment variables)
 DASH_CONFIGS = {
-    'host': "0.0.0.0",
-    'port': 8050
+    'host': os.getenv('DASH_HOST', '0.0.0.0'),
+    'port': int(os.getenv('DASH_PORT', '8050'))
 }
 
 CHATBOT_CONFIG = {

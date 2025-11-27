@@ -1,6 +1,7 @@
 # run_dashboard.py
 
 import logging
+import os
 from dash import dash
 import dashboard.layout as dashboard_layout
 import dashboard.callbacks as dashboard_callbacks
@@ -27,16 +28,22 @@ app.layout = dashboard_layout.layout
 dashboard_callbacks.register_callbacks(app)
 chatbot_callbacks.register_callbacks(app)
 
+host = DASH_CONFIGS['host']
+port = DASH_CONFIGS['port']
+debug_flag = os.getenv('DASH_DEBUG', 'false').lower() == 'true'
+
 # Print startup messages
 print("Starting SDR Real-time Visualization Dashboard")
-print("Open your browser and go to: http://127.0.0.1:8050")
+print(f"Open your browser and go to: http://localhost:{port}")
 print("\nInstructions:")
 print("1. Click 'Connect SDR' to establish connection")
 print("2. Click 'Reconnect SDR' to reconnect if connection is lost")
 print("3. Click 'Start Streaming' to begin data acquisition")
 print("4. Click 'Stop Streaming' to stop data acquisition")
-print("\nNote: Make sure your SDR device is connected and accessible")
+print("\nEnvironment:")
+print(f"HOST={host} PORT={port} DEBUG={'on' if debug_flag else 'off'}")
+print("\nNote: Ensure your SDR device (e.g., PlutoSDR) is reachable from the container/network")
 
 # Run server
 if __name__ == "__main__":
-    app.run(debug=True, dev_tools_hot_reload=True, host=DASH_CONFIGS['host'], port=DASH_CONFIGS['port'])
+    app.run(debug=debug_flag, dev_tools_hot_reload=debug_flag, host=host, port=port)

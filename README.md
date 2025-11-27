@@ -49,7 +49,7 @@ Designed specifically for:
 - Python 3.8+ (backend)
 - Modern web browser (frontend)
 
-### Quick Start
+### Quick Start (Local Python)
 ```bash
 # Clone the repository
 git clone https://github.com/yourusername/sdr-iq-visualizer.git
@@ -58,11 +58,39 @@ cd sdr-iq-visualizer
 # Install dependencies
 pip install -r requirements.txt
 
-# Connect your ADALM-Pluto and run
-python main.py
+# Run the dashboard
+python run_dashboard.py
 
-# Open browser to localhost:8080
+# Open browser to http://localhost:8050
 ```
+
+### Quick Start (Docker Compose)
+```bash
+# 1. Copy example environment file
+cp .env.example .env
+# 2. (Optional) edit .env to add GOOGLE_API_KEY for chatbot features
+# 3. Build and start
+docker compose up --build
+# 4. Open browser
+open http://localhost:8050  # (Windows: start http://localhost:8050)
+```
+
+To stop:
+```bash
+docker compose down
+```
+
+### Docker Image Details
+- Base image: python:3.11-slim
+- System libs: libiio (PlutoSDR support), libusb, curl (healthcheck)
+- Healthcheck: GET / on port 8050
+- Environment overrides:
+	- `DASH_HOST` (default 0.0.0.0)
+	- `DASH_PORT` (default 8050)
+	- `DASH_DEBUG` (default false)
+	- `GOOGLE_API_KEY` (required for chatbot)
+
+If you need USB passthrough (running container directly with attached PlutoSDR instead of network IP), uncomment the `devices` section in `docker-compose.yml` and start Docker with appropriate privileges. Otherwise, the default network URI `ip:192.168.2.1` is used.
 
 ## 🛠️ Technology Stack
 
