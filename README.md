@@ -1,10 +1,10 @@
-# SDR IQ Data Visualization Platform
+# SDR IQ Data Analysis Platform
 
 > A web-based real-time visualization and analysis platform for Software-Defined Radio (SDR) IQ data
 
 ## 🎯 Overview
 
-This platform provides an accessible, browser-based interface for visualizing and analyzing raw IQ (In-phase/Quadrature) data from Software-Defined Radios, specifically designed for the ADALM-Pluto SDR. Built to bridge the gap between complex SDR tools and educational/research needs, it offers real-time signal visualization without requiring specialized software installations.
+This platform provides an accessible, browser-based interface for visualizing and analyzing raw IQ (In-phase/Quadrature) data from Software-Defined Radios, specifically designed for the ADALM-Pluto SDR. Built to bridge the gap between complex SDR tools and educational/research needs, it offers real-time signal visualization and AI-powered analysis without requiring specialized software installations.
 
 ## ✨ Features
 
@@ -14,25 +14,22 @@ This platform provides an accessible, browser-based interface for visualizing an
 - **Constellation diagrams** - Interactive modulation characteristic visualization  
 - **Waterfall plots** - Spectral activity over time with color-coded intensity
 
-### Interactive Controls
-- Real-time frequency tuning
-- Adjustable bandwidth and gain settings
-- Synchronized multi-view dashboard
-- Device-agnostic web interface
+### AI-Powered Analysis
+- **Interactive Chatbot** - Ask questions about the signal, powered by Google Gemini
+- **Signal Classification** - Automatic detection of signal properties (bandwidth, SNR, etc.)
+- **Contextual Insights** - Get explanations for observed signal characteristics
 
-### Extended Analysis (Planned)
-- Basic demodulation modes (AM/FM)
-- Machine learning-based modulation classification
-- Data export for offline analysis
-- Integration APIs for external tools
+### Data Export 
+- Download captured IQ data for offline analysis
 
 ## 🏗️ Architecture
 
-The platform consists of three main components:
+The platform consists of four main components:
 
 1. **Backend Signal Processing** - Communicates with SDR hardware, captures IQ samples, and performs digital signal processing
 2. **Web Frontend** - Browser-based visualization interface with real-time data streaming
-3. **Analysis Engine** - Advanced signal processing and optional ML-based classification
+3. **Analysis Engine** - Advanced signal processing and classification utilities
+4. **AI Assistant** - Integrated chatbot using Google Gemini for signal interpretation and user assistance
 
 ## 🎓 Educational Impact
 
@@ -48,6 +45,7 @@ Designed specifically for:
 - ADALM-Pluto SDR device
 - Python 3.8+ (backend)
 - Modern web browser (frontend)
+- Google API Key (for AI features)
 
 ### Quick Start (Local Python)
 ```bash
@@ -58,8 +56,11 @@ cd sdr-iq-visualizer
 # Install dependencies
 pip install -r requirements.txt
 
+# Set up environment variables
+export GOOGLE_API_KEY="your_api_key_here"
+
 # Run the dashboard
-python run_dashboard.py
+python main.py
 
 # Open browser to http://localhost:8050
 ```
@@ -68,7 +69,7 @@ python run_dashboard.py
 ```bash
 # 1. Copy example environment file
 cp .env.example .env
-# 2. (Optional) edit .env to add GOOGLE_API_KEY for chatbot features
+# 2. Edit .env to add GOOGLE_API_KEY for chatbot features
 # 3. Build and start
 docker compose up --build
 # 4. Open browser
@@ -94,8 +95,9 @@ If you need USB passthrough (running container directly with attached PlutoSDR i
 
 ## 🛠️ Technology Stack
 
-- **Backend**: Python, NumPy, SciPy, PyADI-IIO
-- **Frontend**: HTML5, JavaScript, WebGL/Canvas, WebSockets
+- **Backend**: Python, Flask, PyADI-IIO
+- **Frontend**: Dash, Plotly, Bootstrap
+- **AI/ML**: Google Gemini, Pandas
 - **Signal Processing**: FFT algorithms, digital filtering
 - **Hardware**: ADALM-Pluto SDR
 

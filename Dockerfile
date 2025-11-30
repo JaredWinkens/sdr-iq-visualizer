@@ -33,4 +33,4 @@ ENV DASH_HOST=0.0.0.0 \
     DASH_PORT=8050 \
     DASH_DEBUG=false
 
-ENTRYPOINT ["python", "run_dashboard.py"]
+ENTRYPOINT ["python", "main.py"]
