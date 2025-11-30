@@ -57,6 +57,9 @@ cd sdr-iq-visualizer
 pip install -r requirements.txt
 
 # Set up environment variables
+export DASH_HOST=0.0.0.0
+export DASH_PORT=8050
+export DASH_DEBUG=false
 export GOOGLE_API_KEY="your_api_key_here"
 
 # Run the dashboard
@@ -67,11 +70,15 @@ python main.py
 
 ### Quick Start (Docker Compose)
 ```bash
-# 1. Copy example environment file
-cp .env.example .env
-# 2. Edit .env to add GOOGLE_API_KEY for chatbot features
+# 1. Set up environment variables
+export DASH_HOST=0.0.0.0
+export DASH_PORT=8050
+export DASH_DEBUG=false
+export GOOGLE_API_KEY="your_api_key_here"
+
 # 3. Build and start
 docker compose up --build
+
 # 4. Open browser
 open http://localhost:8050  # (Windows: start http://localhost:8050)
 ```
