@@ -76,10 +76,10 @@ export DASH_PORT=8050
 export DASH_DEBUG=false
 export GOOGLE_API_KEY="your_api_key_here"
 
-# 3. Build and start
+# 2. Build and start
 docker compose up --build
 
-# 4. Open browser
+# 3. Open browser
 open http://localhost:8050  # (Windows: start http://localhost:8050)
 ```
 
