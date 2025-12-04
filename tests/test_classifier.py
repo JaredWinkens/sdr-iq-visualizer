@@ -11,7 +11,6 @@ class TestClassifier(unittest.TestCase):
         self.assertEqual(result, "No Data")
 
     def test_classify_signal_simple_noise(self):
-        freqs = np.linspace(0, 100, 100)
         # All power below threshold (max - 20)
         # Let's make max 0, so threshold is -20.
         # If all values are -30, it should be noise.
