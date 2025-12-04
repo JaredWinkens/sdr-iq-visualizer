@@ -14,7 +14,6 @@ class TestClassifier(unittest.TestCase):
         # All power below threshold (max - 20)
         # Let's make max 0, so threshold is -20.
         # If all values are -30, it should be noise.
-        power_db = np.full(100, -30.0)
         # classify_signal_simple calculates threshold = max(power_db) - 20
         # If all are -30, max is -30, threshold is -50.
         # -30 > -50 is True. So it won't be noise by that logic if purely relative.
