@@ -93,10 +93,10 @@ docker compose down
 - System libs: libiio (PlutoSDR support), libusb, curl (healthcheck)
 - Healthcheck: GET / on port 8050
 - Environment overrides:
-	- `DASH_HOST` (default 0.0.0.0)
-	- `DASH_PORT` (default 8050)
-	- `DASH_DEBUG` (default false)
-	- `GOOGLE_API_KEY` (required for chatbot)
+  - `DASH_HOST` (default 0.0.0.0)
+  - `DASH_PORT` (default 8050)
+  - `DASH_DEBUG` (default false)
+  - `GOOGLE_API_KEY` (required for chatbot)
 
 If you need USB passthrough (running container directly with attached PlutoSDR instead of network IP), uncomment the `devices` section in `docker-compose.yml` and start Docker with appropriate privileges. Otherwise, the default network URI `ip:192.168.2.1` is used.
 
