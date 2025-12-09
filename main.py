@@ -3,11 +3,14 @@
 import logging
 import os
 from dash import dash
+import kaleido
 import app.dashboard.layout as dashboard_layout
 import app.dashboard.callbacks as dashboard_callbacks
 import app.chatbot.callbacks as chatbot_callbacks
 import dash_bootstrap_components as dbc
 from app.config.settings import DASH_CONFIGS
+
+kaleido.get_chrome_sync()
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)

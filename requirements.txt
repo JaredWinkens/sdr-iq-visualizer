@@ -31,7 +31,7 @@ jsonschema==4.25.1
 jsonschema-specifications==2025.9.1
 jupyter_core==5.8.1
 jupytext==1.17.3
-kaleido==1.2.0
+kaleido
 kiwisolver==1.4.9
 logistro==2.0.1
 markdown-it-py==4.0.0
@@ -50,7 +50,7 @@ packaging==25.0
 pandas==2.2.3
 pillow==11.3.0
 platformdirs==4.4.0
-plotly==6.1.0
+plotly
 pluggy==1.6.0
 pyadi-iio==0.0.19
 pyasn1==0.6.1
