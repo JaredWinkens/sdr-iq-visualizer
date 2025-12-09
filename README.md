@@ -102,9 +102,9 @@ If you need USB passthrough (running container directly with attached PlutoSDR i
 
 ## 🛠️ Technology Stack
 
-- **Backend**: Python, Flask, PyADI-IIO
+- **Backend**: Python, Numpy, Flask, PyADI-IIO, SigMF
 - **Frontend**: Dash, Plotly, Bootstrap
-- **AI/ML**: Google Gemini, Pandas
+- **AI/ML**: Google Gemini, Pandas, Pydantic
 - **Signal Processing**: FFT algorithms, digital filtering
 - **Hardware**: ADALM-Pluto SDR
 

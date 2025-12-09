@@ -10,33 +10,6 @@ class TestClassifier(unittest.TestCase):
         result = classify_signal_simple(freqs, power_db)
         self.assertEqual(result, "No Data")
 
-    def test_classify_signal_simple_noise(self):
-        # All power below threshold (max - 20)
-        # Let's make max 0, so threshold is -20.
-        # If all values are -30, it should be noise.
-        # classify_signal_simple calculates threshold = max(power_db) - 20
-        # If all are -30, max is -30, threshold is -50.
-        # -30 > -50 is True. So it won't be noise by that logic if purely relative.
-        # Wait, let's look at the code:
-        # threshold = np.max(power_db) - 20
-        # mask = power_db > threshold
-        # if not np.any(mask): return "Noise"
-        # If power_db is constant, max is X. threshold is X-20. X > X-20 is True.
-        # So a flat line is never "Noise" by this simple logic unless empty?
-        # Actually, if there is variation, but nothing stands out?
-        # Let's try to force a case where nothing is > max - 20.
-        # That's impossible if max is in the array.
-        # Ah, unless the array is empty, which is handled.
-        # Maybe the logic is intended for when there are peaks?
-        # Let's re-read the code.
-        # threshold = np.max(power_db) - 20
-        # mask = power_db > threshold
-        # The max value itself is in power_db, so it is > threshold.
-        # So mask will always have at least one True value.
-        # So "Noise" is unreachable in classify_signal_simple unless I misunderstood something or np.max behaves differently.
-        # Let's assume the simple classifier is very simple.
-        pass
-
     def test_classify_signal_simple_narrowband(self):
         freqs = np.linspace(0, 10e6, 100) # 10 MHz span
         power_db = np.zeros(100)
