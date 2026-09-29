@@ -77,6 +77,7 @@ class RadioMLDataset(Dataset):
         pkl_path: str,
         label_filter: list[str] = None,
         snr_range: tuple[int, int] = None,
+        transform=None,
     ):
         if label_filter is None:
             label_filter = BASELINE_LABELS
@@ -96,6 +97,7 @@ class RadioMLDataset(Dataset):
 
         self.samples = np.stack(samples)   # (N, 2, 128)
         self.labels = np.array(labels, dtype=np.int64)
+        self.transform = transform
         logger.info(
             "RadioMLDataset: %d samples | labels: %s",
             len(self.labels),
@@ -106,7 +108,10 @@ class RadioMLDataset(Dataset):
         return len(self.labels)
 
     def __getitem__(self, idx):
-        return torch.from_numpy(self.samples[idx]), self.labels[idx]
+        x = self.samples[idx]
+        if self.transform is not None:
+            x = self.transform(x)
+        return torch.from_numpy(x), self.labels[idx]
 
 
 class SigMFDataset(Dataset):
@@ -117,7 +122,7 @@ class SigMFDataset(Dataset):
     Only annotations whose label appears in ``label_filter`` are used.
     """
 
-    def __init__(self, paths: list[str], label_filter: list[str] = None):
+    def __init__(self, paths: list[str], label_filter: list[str] = None, transform=None):
         if label_filter is None:
             label_filter = BASELINE_LABELS
 
@@ -161,6 +166,7 @@ class SigMFDataset(Dataset):
 
         self.samples = np.stack(samples)
         self.labels = np.array(labels, dtype=np.int64)
+        self.transform = transform
         logger.info(
             "SigMFDataset: %d samples from %d file(s)", len(self.labels), len(paths)
         )
@@ -169,7 +175,10 @@ class SigMFDataset(Dataset):
         return len(self.labels)
 
     def __getitem__(self, idx):
-        return torch.from_numpy(self.samples[idx]), self.labels[idx]
+        x = self.samples[idx]
+        if self.transform is not None:
+            x = self.transform(x)
+        return torch.from_numpy(x), self.labels[idx]
 
 
 # ---------------------------------------------------------------------------
