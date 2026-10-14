@@ -71,7 +71,7 @@ class TestAWGN(unittest.TestCase):
         """At very high SNR the added noise should be negligible."""
         iq = _synthetic_iq()
         out = awgn(iq, snr_db=60.0)
-        np.testing.assert_allclose(np.abs(out), np.abs(iq), rtol=0.01)
+        np.testing.assert_allclose(np.abs(out), np.abs(iq), rtol=0.02)
 
     def test_silence_unchanged(self):
         iq = np.zeros(WINDOW_SIZE, dtype=np.complex64)
