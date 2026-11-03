@@ -8,6 +8,7 @@ import queue
 import time
 from collections import deque
 import logging
+from app.processing.ml_inference import classify_iq, model_loaded
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -168,6 +169,13 @@ app.layout = html.Div([
         dcc.Graph(id='waterfall-graph')
     ]),
     
+    html.Div([
+        html.H3("Signal Classification (CNN)"),
+        html.Pre(id='classification-div',
+                 style={'background': '#f4f4f4', 'padding': '10px',
+                        'border': '1px solid #ccc', 'minHeight': '60px'})
+    ]),
+
     # Interval component for updating graphs
     dcc.Interval(
         id='interval-component',
@@ -222,7 +230,8 @@ def control_streaming(start_clicks, stop_clicks):
 @app.callback(
     [Output('time-domain-graph', 'figure'),
      Output('freq-domain-graph', 'figure'),
-     Output('waterfall-graph', 'figure')],
+     Output('waterfall-graph', 'figure'),
+     Output('classification-div', 'children')],
     Input('interval-component', 'n_intervals'),
     prevent_initial_call=True
 )
@@ -235,7 +244,7 @@ def update_graphs(n):
     if data is None:
         # Return empty figures if no data
         empty_fig = go.Figure()
-        return empty_fig, empty_fig, empty_fig
+        return empty_fig, empty_fig, empty_fig, 'Waiting for samples...'
     
     samples = data['samples']
     freqs = data['freqs']
@@ -307,7 +316,25 @@ def update_graphs(n):
         height=400
     )
     
-    return time_fig, freq_fig, waterfall_fig
+    # Classification - CNN model
+    try:
+        if samples is not None and len(samples) >= 128:
+            res = classify_iq(np.asarray(samples))
+            label = res.get("label", "Unknown")
+            conf = res.get("confidence", 0.0)
+            probs = res.get("probabilities", {})
+            source = res.get("source", "none")
+            if source == "cnn":
+                prob_parts = "  ".join(f"{k}: {v:.2f}" for k, v in probs.items())
+                cls_text = f"Detected: {label}  (confidence {conf:.0%})\nPer-class: {prob_parts}"
+            else:
+                cls_text = "No trained model found. Run scripts/run_experiment.py to train one."
+        else:
+            cls_text = "Waiting for samples..."
+    except Exception as e:
+        cls_text = f"Classification error: {e}"
+
+    return time_fig, freq_fig, waterfall_fig, cls_text
 
 if __name__ == '__main__':
     print("Starting SDR Real-time Visualization Dashboard")
