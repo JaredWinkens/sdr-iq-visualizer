@@ -23,12 +23,12 @@ from app.processing.augmentation import AugmentationPipeline
 from app.processing.ml_classifier import RadioMLDataset, train
 
 pipeline = AugmentationPipeline(
-    snr_db_range=(-5, 15),   # inject AWGN so effective SNR lands in this range
-    freq_offset_range=(-0.05, 0.05),  # ±5% of sample rate
+    snr_db_range=(5, 20),    # inject AWGN so effective SNR lands in this range
+    freq_offset_range=(-0.025, 0.025),  # ±2.5% of sample rate
     phase_shift_range=(-3.14159, 3.14159),
-    amplitude_scale_range=(0.8, 1.2),
-    dc_offset_std=0.01,
-    p_apply=0.8,             # probability of applying the full pipeline per sample
+    amplitude_scale_range=(0.9, 1.1),
+    dc_offset_std=0.005,
+    p_apply=0.6,             # probability of applying the full pipeline per sample
 )
 
 dataset = RadioMLDataset("RML2016.10a_dict.pkl", transform=pipeline)
@@ -201,12 +201,12 @@ class AugmentationPipeline:
         Optional fixed seed for reproducible augmentation (useful in tests).
     """
 
-    snr_db_range: Optional[Tuple[float, float]] = (-5.0, 15.0)
-    freq_offset_range: Optional[Tuple[float, float]] = (-0.05, 0.05)
+    snr_db_range: Optional[Tuple[float, float]] = (5.0, 20.0)
+    freq_offset_range: Optional[Tuple[float, float]] = (-0.025, 0.025)
     phase_shift_range: Optional[Tuple[float, float]] = (-np.pi, np.pi)
-    amplitude_scale_range: Optional[Tuple[float, float]] = (0.8, 1.2)
-    dc_offset_std: Optional[float] = 0.01
-    p_apply: float = 0.8
+    amplitude_scale_range: Optional[Tuple[float, float]] = (0.9, 1.1)
+    dc_offset_std: Optional[float] = 0.005
+    p_apply: float = 0.6
     seed: Optional[int] = None
 
     def __post_init__(self):

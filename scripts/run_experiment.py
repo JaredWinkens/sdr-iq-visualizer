@@ -86,7 +86,8 @@ def _evaluate_with_snr_buckets(model, dataset):
         model.eval()
         with torch.no_grad():
             for x, y in loader:
-                all_preds.append(model(x).argmax(dim=1).numpy())
+                device = next(model.parameters()).device
+                all_preds.append(model(x.to(device)).argmax(dim=1).cpu().numpy())
                 all_labels.append(y.numpy())
         preds  = np.concatenate(all_preds)
         labels = np.concatenate(all_labels)
@@ -184,12 +185,12 @@ def main():
     # ── Augmented ─────────────────────────────────────────────────────────────
     if not args.eval_only:
         pipeline = AugmentationPipeline(
-            snr_db_range=(-5, 15),
-            freq_offset_range=(-0.05, 0.05),
+            snr_db_range=(5, 20),
+            freq_offset_range=(-0.025, 0.025),
             phase_shift_range=(-np.pi, np.pi),
-            amplitude_scale_range=(0.8, 1.2),
+            amplitude_scale_range=(0.9, 1.1),
             dc_offset_std=0.01,
-            p_apply=0.9,
+            p_apply=0.6,
             seed=args.seed,
         )
         logger.info("Augmentation config: %s", pipeline.describe())
