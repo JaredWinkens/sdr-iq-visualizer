@@ -55,11 +55,11 @@ def _try_load_model() -> bool:
 
     try:
         from app.processing.ml_classifier import load_model, BASELINE_LABELS
-        model, meta = load_model(str(path))
+        model, labels = load_model(str(path))
         model.eval()
         _model = model
-        _labels = BASELINE_LABELS
-        logger.info("ML classifier loaded from %s (epoch %s)", path, meta.get("epoch", "?"))
+        _labels = labels
+        logger.info("ML classifier loaded from %s", path)
         return True
     except Exception as exc:
         logger.error("Failed to load ML model: %s", exc)
